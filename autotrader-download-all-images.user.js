@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AutoTrader UK - Download All Images
 // @namespace    https://example.local/autotrader-dl
-// @version      1.0.0
+// @version      1.1.0
 // @description  Adds a "Download All Images" button to AutoTrader UK car pages and downloads the highest quality version of every gallery photo.
 // @match        https://www.autotrader.co.uk/car-details/*
 // @grant        GM_xmlhttpRequest
@@ -100,7 +100,7 @@
     return best;
   }
 
-  function collectImages() {
+  function collectStatic() {
     const domParsed = fromDom().map(parseCdn).filter(Boolean);
     const jsonParsed = fromNextData().map(parseCdn).filter(Boolean);
     const domKeys = new Set(domParsed.map((p) => p.key));
@@ -115,6 +115,101 @@
 
     const seen = new Set();
     return chosen.filter((p) => (seen.has(p.key) ? false : seen.add(p.key)));
+  }
+
+  // ---------- Gallery walking (for lazily loaded photos) ----------
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const NEXT_SEL = 'button[aria-label*="next" i], [data-testid*="next" i], button[class*="next" i], [aria-label*="next" i]';
+  const CLOSE_SEL = 'button[aria-label*="close" i], [data-testid*="close" i], button[class*="close" i]';
+
+  function imgsIn(root) {
+    const out = [];
+    root.querySelectorAll('img, source').forEach((el) => {
+      ['src', 'data-src', 'srcset', 'data-srcset'].forEach((a) => {
+        const v = el.getAttribute(a);
+        if (v) (v.match(CDN_RE) || []).forEach((u) => out.push(u));
+      });
+    });
+    return out.map(parseCdn).filter(Boolean);
+  }
+
+  function findDialog() {
+    const sel = '[role="dialog"], [aria-modal="true"], [class*="lightbox" i], [class*="modal" i], [class*="fullscreen" i]';
+    return [...document.querySelectorAll(sel)].find(
+      (el) => el !== document.body && el !== document.documentElement && imgsIn(el).length
+    ) || null;
+  }
+
+  function pressKey(key, code, keyCode) {
+    const target = document.activeElement || document.body;
+    ['keydown', 'keyup'].forEach((t) =>
+      target.dispatchEvent(new KeyboardEvent(t, { key, code, keyCode, which: keyCode, bubbles: true }))
+    );
+  }
+
+  async function walkGallery(btn) {
+    const found = new Map();
+    const root = findGallery();
+    const addFrom = (el) => {
+      let n = 0;
+      imgsIn(el).forEach((p) => { if (!found.has(p.key)) { found.set(p.key, p); n++; } });
+      return n;
+    };
+    if (!root) { log('walk: no gallery element'); return []; }
+    addFrom(root);
+
+    const opener = root.querySelector('img') || root.querySelector('button');
+    if (!opener) return [...found.values()];
+    (opener.closest('button, a, [role="button"]') || opener).click();
+    await sleep(1000);
+
+    let idle = 0;
+    let openedDialog = null;
+    for (let i = 0; i < 80 && idle < 4; i++) {
+      openedDialog = findDialog() || openedDialog;
+      const scope = openedDialog || root;
+      btn.textContent = `Scanning gallery… ${found.size}`;
+      idle = addFrom(scope) ? 0 : idle + 1;
+
+      const next = scope.querySelector(NEXT_SEL) || document.querySelector(NEXT_SEL);
+      if (next) next.click(); else pressKey('ArrowRight', 'ArrowRight', 39);
+      await sleep(350);
+    }
+    log('walk: dialog found =', !!openedDialog, ', images seen =', found.size);
+
+    // Close the viewer again
+    const close = (openedDialog && openedDialog.querySelector(CLOSE_SEL)) || document.querySelector(CLOSE_SEL);
+    if (close) close.click(); else pressKey('Escape', 'Escape', 27);
+    await sleep(300);
+    return [...found.values()];
+  }
+
+  // Every atcdn media URL anywhere in the page source (may include "similar cars" - only used with Shift-click)
+  function pageWide() {
+    return (document.documentElement.innerHTML.match(CDN_RE) || []).map(parseCdn).filter(Boolean);
+  }
+
+  async function collectImages(btn, allMode) {
+    const stat = collectStatic();
+    let walked = [];
+    try {
+      btn.textContent = 'Scanning gallery…';
+      walked = await walkGallery(btn);
+    } catch (e) {
+      console.error('[AT-DL] gallery walk failed', e);
+    }
+    const wide = pageWide();
+
+    const seen = new Set();
+    const out = [];
+    const add = (list) => list.forEach((p) => { if (!seen.has(p.key)) { seen.add(p.key); out.push(p); } });
+    add(stat);
+    add(walked);
+    if (allMode) add(wide);
+
+    log(`static: ${stat.length}, walked: ${walked.length}, page-wide (unique): ${new Set(wide.map((p) => p.key)).size}, using: ${out.length}${allMode ? ' (shift: page-wide included)' : ''}`);
+    return out;
   }
 
   // ---------- Network ----------
@@ -165,10 +260,13 @@
     return `${slug}_${id}`;
   }
 
-  async function run(btn) {
-    const images = collectImages();
+  async function run(btn, allMode) {
+    btn.disabled = true;
+    const images = await collectImages(btn, allMode);
     if (!images.length) {
       alert('No gallery images found. Open the browser console (F12) and check the [AT-DL] log.');
+      btn.textContent = 'Download All Images';
+      btn.disabled = false;
       return;
     }
     btn.disabled = true;
@@ -203,7 +301,7 @@
     btn.id = BTN_ID;
     btn.type = 'button';
     btn.textContent = 'Download All Images';
-    btn.addEventListener('click', () => run(btn));
+    btn.addEventListener('click', (e) => run(btn, e.shiftKey));
     wrap.appendChild(btn);
 
     const gallery = findGallery();
