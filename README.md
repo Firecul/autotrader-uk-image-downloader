@@ -16,7 +16,8 @@ A userscript that adds a **Download All Images** button to [AutoTrader UK](https
    - [Tampermonkey](https://www.tampermonkey.net/) (Firefox, Chrome, Brave, Edge, Safari)
    - [Violentmonkey](https://violentmonkey.github.io/) should also work
 2. Install the script:
-   - **Directly from GitHub:** [autotrader-download-all-images.user.js](https://raw.githubusercontent.com/firecul/autotrader-uk-image-downloader/main/autotrader-download-all-images.user.js)
+   - **Greasy Fork:** `https://greasyfork.org/scripts/602690`
+   - **Or directly from GitHub:** [autotrader-download-all-images.user.js](https://raw.githubusercontent.com/firecul/autotrader-uk-image-downloader/main/autotrader-download-all-images.user.js)
 3. Confirm the installation when your userscript manager prompts you.
 
 ## Usage
