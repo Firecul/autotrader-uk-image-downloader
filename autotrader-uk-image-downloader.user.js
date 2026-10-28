@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         AutoTrader UK - Download All Images
 // @namespace    https://github.com/firecul/autotrader-uk-image-downloader
-// @version      1.2.0
+// @version      1.2.1
 // @description  Adds a "Download All Images" button to AutoTrader UK car pages and saves the highest quality version of every gallery photo.
-// @author       YOUR_NAME
+// @author       Firecul
 // @license      MIT
 // @homepageURL  https://github.com/firecul/autotrader-uk-image-downloader
 // @supportURL   https://github.com/firecul/autotrader-uk-image-downloader/issues
