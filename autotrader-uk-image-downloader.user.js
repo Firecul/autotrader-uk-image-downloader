@@ -1,20 +1,25 @@
 // ==UserScript==
 // @name         AutoTrader UK - Download All Images
-// @namespace    https://example.local/autotrader-dl
-// @version      1.1.0
-// @description  Adds a "Download All Images" button to AutoTrader UK car pages and downloads the highest quality version of every gallery photo.
+// @namespace    https://github.com/firecul/autotrader-uk-image-downloader
+// @version      1.2.0
+// @description  Adds a "Download All Images" button to AutoTrader UK car pages and saves the highest quality version of every gallery photo.
+// @author       YOUR_NAME
+// @license      MIT
+// @homepageURL  https://github.com/firecul/autotrader-uk-image-downloader
+// @supportURL   https://github.com/firecul/autotrader-uk-image-downloader/issues
 // @match        https://www.autotrader.co.uk/car-details/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @connect      atcdn.co.uk
 // @connect      m.atcdn.co.uk
+// @noframes
 // @run-at       document-idle
 // ==/UserScript==
 
 (function () {
   'use strict';
 
-  const DEBUG = true; // set false to silence console output
+  const DEBUG = false; // set to true to log what the script finds to the browser console
   const log = (...a) => DEBUG && console.log('[AT-DL]', ...a);
 
   const BTN_ID = 'at-dl-all-btn';
@@ -264,7 +269,7 @@
     btn.disabled = true;
     const images = await collectImages(btn, allMode);
     if (!images.length) {
-      alert('No gallery images found. Open the browser console (F12) and check the [AT-DL] log.');
+      alert('No gallery images found. To investigate, set DEBUG = true at the top of the script, reload, and check the browser console (F12) for [AT-DL] messages.');
       btn.textContent = 'Download All Images';
       btn.disabled = false;
       return;
